@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>APA 9-Ball Scorer</title>
+<style>
+  :root {
+    --bg-dark: #1a1a1a;
+    --bg-felt: #1b4332;
+    --bg-card: #2d2d2d;
+    --bg-rail: #3e2723;
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --accent-gold: #d4a84b;
+    --accent-green: #2d6a4f;
+    --btn-primary: #2d6a4f;
+    --btn-danger: #c0392b;
+    --btn-secondary: #444;
+    --shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* === SETUP SCREEN === */
+  #setup-screen {
+    padding: 24px 16px;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .app-title {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .app-title h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent-gold);
+    letter-spacing: 1px;
+  }
+  .app-title p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .player-setup {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow);
+    border: 1px solid #3a3a3a;
+  }
+  .player-setup h2 {
+    font-size: 16px;
+    color: var(--accent-gold);
+    margin-bottom: 14px;
+  }
+  .player-setup label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    margin-top: 12px;
+  }
+  .player-setup label:first-of-type { margin-top: 0; }
+  .player-setup input, .player-setup select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #555;
+    background: #222;
+    color: var(--text-primary);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .player-setup input:focus, .player-setup select:focus {
+    border-color: var(--accent-gold);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+    color: #fff;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--btn-primary); }
+  .btn-danger { background: var(--btn-danger); }
+  .btn-secondary { background: var(--btn-secondary); }
+  .btn-gold { background: var(--accent-gold); color: #1a1a1a; }
+  .btn-start {
+    width: 100%;
+    max-width: 400px;
+    padding: 16px;
+    font-size: 18px;
+    background: linear-gradient(135deg, var(--accent-gold), #b8892e);
+    color: #1a1a1a;
+  }
+
+  /* === GAME SCREEN === */
+  #game-screen {
+    padding: 0;
+    background: linear-gradient(180deg, #0d2818 0%, var(--bg-dark) 40%);
+  }
+
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 8px;
+    background: rgba(0,0,0,0.3);
+  }
+  .game-header .match-info {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .game-header .rack-info {
+    font-size: 13px;
+    color: var(--accent-gold);
+    font-weight: 600;
+  }
+
+  .scoreboard {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px 12px;
+  }
+
+  .player-card {
+    flex: 1;
+    background: var(--bg-card);
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+    position: relative;
+    border: 2px solid transparent;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+  }
+  .player-card.active {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 20px rgba(212,168,75,0.2);
+  }
+  .player-card .shooter-badge {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-gold);
+    color: #1a1a1a;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .player-card.active .shooter-badge { opacity: 1; }
+  .player-card .p-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .player-card .p-sl {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .player-card .p-score {
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+  }
+  .player-card .p-race {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+  .player-card .p-progress {
+    margin-top: 8px;
+    height: 4px;
+    background: #444;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .player-card .p-progress-fill {
+    height: 100%;
+    background: var(--accent-gold);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .innings-display {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+  }
+
+  /* Ball Rack */
+  .ball-rack {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 16px;
+  }
+
+  .ball {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, opacity 0.3s, box-shadow 0.2s;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 -3px 6px rgba(0,0,0,0.3), inset 0 3px 6px rgba(255,255,255,0.15);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .ball:active { transform: scale(0.9); }
+  .ball.pocketed {
+    opacity: 0.2;
+    transform: scale(0.7);
+    pointer-events: none;
+    box-shadow: none;
+  }
+  .ball .ball-num {
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #111;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  /* Stripe ball style */
+  .ball.stripe {
+    background: #fff !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .ball.stripe::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    bottom: 18px;
+    left: 0;
+    right: 0;
+    z-index: 0;
+  }
+  .ball.stripe .ball-num { position: relative; z-index: 1; }
+
+  .ball-1 { background: #f1c40f; color: #222; }
+  .ball-2 { background: #2471a3; color: #fff; }
+  .ball-3 { background: #e74c3c; color: #fff; }
+  .ball-4 { background: #7d3c98; color: #fff; }
+  .ball-5 { background: #e67e22; color: #fff; }
+  .ball-6 { background: #27ae60; color: #fff; }
+  .ball-7 { background: #7b241c; color: #fff; }
+  .ball-8 { background: #1a1a1a; color: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 -3px 6px rgba(0,0,0,0.5), inset 0 3px 6px rgba(80,80,80,0.3); }
+  .ball-9.stripe::before { background: #f1c40f; }
+
+  /* Controls */
+  .controls {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    justify-content: flex-end;
+    padding-bottom: 24px;
+  }
+
+  .control-row {
+    display: flex;
+    gap: 8px;
+  }
+  .control-row .btn { flex: 1; padding: 14px 8px; font-size: 14px; }
+
+  .btn-switch { background: #1a6b3c; }
+  .btn-dead { background: #8e44ad; }
+  .btn-undo { background: #555; }
+  .btn-newrack { background: var(--accent-gold); color: #1a1a1a; }
+  .btn-menu-small { background: #333; font-size: 13px; padding: 10px; }
+
+  /* === SUMMARY SCREEN === */
+  #summary-screen {
+    padding: 24px 16px;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .summary-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .summary-card h2 {
+    color: var(--accent-gold);
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+  .summary-card .winner-name {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 8px 0 16px;
+  }
+  .summary-card .final-scores {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin: 16px 0;
+  }
+  .summary-card .final-player {
+    text-align: center;
+  }
+  .summary-card .final-player .fname {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .summary-card .final-player .fscore {
+    font-size: 36px;
+    font-weight: 800;
+  }
+  .summary-card .final-player .fscore.winner-score { color: var(--accent-gold); }
+  .summary-card .match-stats {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  /* Toast notifications */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Win overlay */
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    animation: fadeIn 0.3s;
+  }
+  .win-overlay.show { display: flex; }
+  .win-content {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 340px;
+    width: 90%;
+    box-shadow: 0 8px 40px rgba(212,168,75,0.3);
+    border: 2px solid var(--accent-gold);
+    animation: popIn 0.4s ease;
+  }
+  .win-content h2 { color: var(--accent-gold); font-size: 18px; }
+  .win-content .win-name { font-size: 26px; font-weight: 800; margin: 8px 0 4px; }
+  .win-content .win-score { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+  .win-content .btn { width: 100%; margin-top: 8px; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* Confirmation modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 320px;
+    width: 90%;
+    text-align: center;
+  }
+  .modal-box p { margin-bottom: 20px; font-size: 15px; }
+  .modal-box .btn { width: 100%; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" class="screen active">
+  <div class="app-title">
+    <h1>APA 9-Ball</h1>
+    <p>Match Scorer</p>
+  </div>
+
+  <div class="player-setup">
+    <h2>Player 1</h2>
+    <label>Name</label>
+    <input type="text" id="p1-name" placeholder="Player 1" autocomplete="off">
+    <label>Skill Level</label>
+    <select id="p1-sl"></select>
+  </div>
+
+  <div class="player-setup">
+    <h2>Player 2</h2>
+    <label>Name</label>
+    <input type="text" id="p2-name" placeholder="Player 2" autocomplete="off">
+    <label>Skill Level</label>
+    <select id="p2-sl"></select>
+  </div>
+
+  <button class="btn btn-start" onclick="startMatch()">Start Match</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div class="game-header">
+    <span class="match-info" id="match-info">Match</span>
+    <span class="rack-info" id="rack-info">Rack 1</span>
+  </div>
+
+  <div class="scoreboard">
+    <div class="player-card active" id="card-0" onclick="setShooter(0)">
+      <div class="shooter-badge">Shooting</div>
+      <div class="p-name" id="pname-0">Player 1</div>
+      <div class="p-sl" id="psl-0">SL5 · Race to 38</div>
+      <div class="p-score" id="pscore-0">0</div>
+      <div class="p-race" id="prace-0">38 to go</div>
+      <div class="p-progress"><div class="p-progress-fill" id="pprog-0" style="width:0%"></div></div>
+    </div>
+    <div class="player-card" id="card-1" onclick="setShooter(1)">
+      <div class="shooter-badge">Shooting</div>
+      <div class="p-name" id="pname-1">Player 2</div>
+      <div class="p-sl" id="psl-1">SL5 · Race to 38</div>
+      <div class="p-score" id="pscore-1">0</div>
+      <div class="p-race" id="prace-1">38 to go</div>
+      <div class="p-progress"><div class="p-progress-fill" id="pprog-1" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="innings-display" id="innings-display">Innings: 0</div>
+
+  <div class="ball-rack" id="ball-rack"></div>
+
+  <div class="controls">
+    <div class="control-row">
+      <button class="btn btn-switch" onclick="switchShooter()">Miss / Switch</button>
+      <button class="btn btn-dead" onclick="toggleDeadBall()">Dead Ball</button>
+    </div>
+    <div class="control-row">
+      <button class="btn btn-undo" onclick="undoLast()">Undo</button>
+      <button class="btn btn-newrack" onclick="confirmNewRack()">New Rack</button>
+    </div>
+    <div class="control-row">
+      <button class="btn btn-menu-small" onclick="showEndMatch()">End Match</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUMMARY SCREEN -->
+<div id="summary-screen" class="screen">
+  <div class="summary-card" id="summary-card"></div>
+  <button class="btn btn-start" onclick="newMatch()">New Match</button>
+</div>
+
+<!-- WIN OVERLAY -->
+<div class="win-overlay" id="win-overlay">
+  <div class="win-content">
+    <h2>Rack Complete!</h2>
+    <div class="win-name" id="win-rack-name"></div>
+    <div class="win-score" id="win-rack-score"></div>
+    <button class="btn btn-gold" onclick="nextRack()">Next Rack</button>
+    <button class="btn btn-secondary" onclick="showEndMatch()">End Match</button>
+  </div>
+</div>
+
+<!-- MATCH WIN OVERLAY -->
+<div class="win-overlay" id="match-win-overlay">
+  <div class="win-content">
+    <h2 style="font-size:14px">MATCH OVER</h2>
+    <div class="win-name" id="match-win-name"></div>
+    <div class="win-score" id="match-win-score"></div>
+    <button class="btn btn-gold" onclick="showSummary()">See Summary</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <p id="confirm-msg">Are you sure?</p>
+    <button class="btn btn-gold" id="confirm-yes">Yes</button>
+    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const RACE_CHART = [0, 14, 19, 25, 31, 38, 46, 55, 65, 75];
+
+const BALL_COLORS = {
+  1: { bg: '#f1c40f', fg: '#222' },
+  2: { bg: '#2471a3', fg: '#fff' },
+  3: { bg: '#e74c3c', fg: '#fff' },
+  4: { bg: '#7d3c98', fg: '#fff' },
+  5: { bg: '#e67e22', fg: '#fff' },
+  6: { bg: '#27ae60', fg: '#fff' },
+  7: { bg: '#7b241c', fg: '#fff' },
+  8: { bg: '#1a1a1a', fg: '#fff' },
+  9: { bg: '#f1c40f', fg: '#222', stripe: true }
+};
+
+let match = null;
+
+function initSetup() {
+  for (let i = 1; i <= 2; i++) {
+    const sel = document.getElementById(`p${i}-sl`);
+    for (let sl = 1; sl <= 9; sl++) {
+      const opt = document.createElement('option');
+      opt.value = sl;
+      opt.textContent = `SL${sl} (Race to ${RACE_CHART[sl]})`;
+      if (sl === 5) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startMatch() {
+  const p1Name = document.getElementById('p1-name').value.trim() || 'Player 1';
+  const p2Name = document.getElementById('p2-name').value.trim() || 'Player 2';
+  const p1SL = parseInt(document.getElementById('p1-sl').value);
+  const p2SL = parseInt(document.getElementById('p2-sl').value);
+
+  match = {
+    players: [
+      { name: p1Name, sl: p1SL, race: RACE_CHART[p1SL], score: 0 },
+      { name: p2Name, sl: p2SL, race: RACE_CHART[p2SL], score: 0 }
+    ],
+    currentShooter: 0,
+    deadBallMode: false,
+    innings: 0,
+    rackNum: 1,
+    ballsPocketed: new Set(),
+    history: [],
+    rackHistory: [],
+    matchOver: false
+  };
+
+  setupGameUI();
+  showScreen('game-screen');
+}
+
+function setupGameUI() {
+  const p = match.players;
+  for (let i = 0; i < 2; i++) {
+    document.getElementById(`pname-${i}`).textContent = p[i].name;
+    document.getElementById(`psl-${i}`).textContent = `SL${p[i].sl} · Race to ${p[i].race}`;
+  }
+  updateScoreboard();
+  renderBalls();
+  updateShooterUI();
+  document.getElementById('rack-info').textContent = `Rack ${match.rackNum}`;
+  document.getElementById('innings-display').textContent = `Innings: ${match.innings}`;
+}
+
+function updateScoreboard() {
+  for (let i = 0; i < 2; i++) {
+    const p = match.players[i];
+    document.getElementById(`pscore-${i}`).textContent = p.score;
+    const remaining = Math.max(0, p.race - p.score);
+    document.getElementById(`prace-${i}`).textContent = remaining > 0 ? `${remaining} to go` : 'WINNER!';
+    const pct = Math.min(100, (p.score / p.race) * 100);
+    document.getElementById(`pprog-${i}`).style.width = pct + '%';
+  }
+}
+
+function renderBalls() {
+  const rack = document.getElementById('ball-rack');
+  rack.innerHTML = '';
+  for (let b = 1; b <= 9; b++) {
+    const info = BALL_COLORS[b];
+    const el = document.createElement('div');
+    el.className = `ball ball-${b}` + (info.stripe ? ' stripe' : '');
+    if (match.ballsPocketed.has(b)) el.classList.add('pocketed');
+    el.innerHTML = `<div class="ball-num">${b}</div>`;
+    if (info.stripe) {
+      el.style.background = '#fff';
+      el.style.setProperty('--stripe-color', info.bg);
+      el.innerHTML = `<div class="ball-num">${b}</div>`;
+      // Add stripe via inline style on pseudo
+      const style = document.createElement('style');
+      style.textContent = `.ball-${b}.stripe::before { background: ${info.bg}; }`;
+      if (!document.querySelector(`style[data-ball="${b}"]`)) {
+        style.setAttribute('data-ball', b);
+        document.head.appendChild(style);
+      }
+    }
+    el.onclick = () => pocketBall(b);
+    rack.appendChild(el);
+  }
+}
+
+function updateShooterUI() {
+  document.getElementById('card-0').classList.toggle('active', match.currentShooter === 0);
+  document.getElementById('card-1').classList.toggle('active', match.currentShooter === 1);
+  // Update dead ball button visual
+  const dbBtn = document.querySelector('.btn-dead');
+  if (match.deadBallMode) {
+    dbBtn.style.background = '#c0392b';
+    dbBtn.textContent = 'Dead Ball ON';
+  } else {
+    dbBtn.style.background = '#8e44ad';
+    dbBtn.textContent = 'Dead Ball';
+  }
+}
+
+function setShooter(idx) {
+  if (match.matchOver) return;
+  if (match.currentShooter !== idx) {
+    match.history.push({ type: 'setShooter', prev: match.currentShooter });
+    match.currentShooter = idx;
+    updateShooterUI();
+  }
+}
+
+function switchShooter() {
+  if (match.matchOver) return;
+  const prev = match.currentShooter;
+  match.currentShooter = 1 - match.currentShooter;
+  match.innings++;
+  match.history.push({ type: 'switch', prev, innings: match.innings - 1 });
+  updateShooterUI();
+  document.getElementById('innings-display').textContent = `Innings: ${match.innings}`;
+  toast(`${match.players[match.currentShooter].name}'s turn`);
+}
+
+function toggleDeadBall() {
+  if (match.matchOver) return;
+  match.deadBallMode = !match.deadBallMode;
+  updateShooterUI();
+  toast(match.deadBallMode ? 'Dead ball mode ON — balls go to opponent' : 'Dead ball mode OFF');
+}
+
+function pocketBall(num) {
+  if (match.matchOver) return;
+  if (match.ballsPocketed.has(num)) return;
+
+  const points = (num === 9) ? 2 : 1;
+  let scoringPlayer;
+
+  if (match.deadBallMode) {
+    scoringPlayer = 1 - match.currentShooter;
+  } else {
+    scoringPlayer = match.currentShooter;
+  }
+
+  match.ballsPocketed.add(num);
+  match.players[scoringPlayer].score += points;
+
+  match.history.push({
+    type: 'pocket',
+    ball: num,
+    points,
+    scoringPlayer,
+    deadBall: match.deadBallMode
+  });
+
+  updateScoreboard();
+  renderBalls();
+
+  const label = match.deadBallMode ? ' (dead ball)' : '';
+  toast(`${match.players[scoringPlayer].name} +${points}${label}`);
+
+  // Check for match win
+  if (match.players[scoringPlayer].score >= match.players[scoringPlayer].race) {
+    match.matchOver = true;
+    showMatchWin(scoringPlayer);
+    return;
+  }
+
+  // Check if all balls pocketed (rack over)
+  if (match.ballsPocketed.size === 9) {
+    showRackComplete();
+  }
+}
+
+function undoLast() {
+  if (match.history.length === 0) {
+    toast('Nothing to undo');
+    return;
+  }
+
+  const action = match.history.pop();
+
+  if (action.type === 'pocket') {
+    match.ballsPocketed.delete(action.ball);
+    match.players[action.scoringPlayer].score -= action.points;
+    if (match.matchOver) match.matchOver = false;
+    updateScoreboard();
+    renderBalls();
+    toast(`Undo: ball ${action.ball}`);
+  } else if (action.type === 'switch') {
+    match.currentShooter = action.prev;
+    match.innings = action.innings;
+    updateShooterUI();
+    document.getElementById('innings-display').textContent = `Innings: ${match.innings}`;
+    toast('Undo: switch');
+  } else if (action.type === 'setShooter') {
+    match.currentShooter = action.prev;
+    updateShooterUI();
+    toast('Undo: shooter change');
+  }
+}
+
+function showRackComplete() {
+  // Determine who had more points this rack
+  const overlay = document.getElementById('win-overlay');
+  const lead = match.players[0].score >= match.players[1].score ? 0 : 1;
+  document.getElementById('win-rack-name').textContent = 'All balls pocketed!';
+  document.getElementById('win-rack-score').textContent =
+    `${match.players[0].name}: ${match.players[0].score} | ${match.players[1].name}: ${match.players[1].score}`;
+  overlay.classList.add('show');
+}
+
+function showMatchWin(winnerIdx) {
+  const w = match.players[winnerIdx];
+  const l = match.players[1 - winnerIdx];
+  document.getElementById('match-win-name').textContent = `${w.name} Wins!`;
+  document.getElementById('match-win-score').textContent = `${w.score}/${w.race} vs ${l.score}/${l.race}`;
+  document.getElementById('match-win-overlay').classList.add('show');
+}
+
+function nextRack() {
+  document.getElementById('win-overlay').classList.remove('show');
+  match.rackNum++;
+  match.ballsPocketed = new Set();
+  match.deadBallMode = false;
+  match.history = [];
+  match.innings = 0;
+  // Save rack data
+  match.rackHistory.push({
+    rack: match.rackNum - 1,
+    p1Score: match.players[0].score,
+    p2Score: match.players[1].score
+  });
+  document.getElementById('rack-info').textContent = `Rack ${match.rackNum}`;
+  document.getElementById('innings-display').textContent = `Innings: ${match.innings}`;
+  renderBalls();
+  updateShooterUI();
+}
+
+function confirmNewRack() {
+  if (match.matchOver) return;
+  showConfirm('Start a new rack? (Remaining balls won\'t count)', () => {
+    match.rackNum++;
+    match.ballsPocketed = new Set();
+    match.deadBallMode = false;
+    match.history = [];
+    match.innings = 0;
+    match.rackHistory.push({
+      rack: match.rackNum - 1,
+      p1Score: match.players[0].score,
+      p2Score: match.players[1].score
+    });
+    document.getElementById('rack-info').textContent = `Rack ${match.rackNum}`;
+    document.getElementById('innings-display').textContent = `Innings: ${match.innings}`;
+    renderBalls();
+    updateShooterUI();
+    toast('New rack started');
+  });
+}
+
+function showEndMatch() {
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('match-win-overlay').classList.remove('show');
+  showConfirm('End the match and see summary?', () => {
+    match.matchOver = true;
+    showSummary();
+  });
+}
+
+function showSummary() {
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('match-win-overlay').classList.remove('show');
+  closeModal();
+
+  const p = match.players;
+  const w = p[0].score >= p[0].race ? 0 : (p[1].score >= p[1].race ? 1 : (p[0].score > p[1].score ? 0 : 1));
+
+  const card = document.getElementById('summary-card');
+  card.innerHTML = `
+    <h2>Match Complete</h2>
+    <div class="winner-name" style="color:var(--accent-gold)">${p[w].name} Wins!</div>
+    <div class="final-scores">
+      <div class="final-player">
+        <div class="fname">${p[0].name} (SL${p[0].sl})</div>
+        <div class="fscore ${w === 0 ? 'winner-score' : ''}">${p[0].score}</div>
+        <div class="fname">of ${p[0].race}</div>
+      </div>
+      <div class="final-player" style="color:var(--text-secondary);font-size:24px;align-self:center">vs</div>
+      <div class="final-player">
+        <div class="fname">${p[1].name} (SL${p[1].sl})</div>
+        <div class="fscore ${w === 1 ? 'winner-score' : ''}">${p[1].score}</div>
+        <div class="fname">of ${p[1].race}</div>
+      </div>
+    </div>
+    <div class="match-stats">
+      Racks played: ${match.rackNum}<br>
+      Total innings: ${match.innings}
+    </div>
+  `;
+
+  showScreen('summary-screen');
+}
+
+function newMatch() {
+  match = null;
+  showScreen('setup-screen');
+}
+
+// UI helpers
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function showConfirm(msg, onYes) {
+  document.getElementById('confirm-msg').textContent = msg;
+  const yesBtn = document.getElementById('confirm-yes');
+  yesBtn.onclick = () => { closeModal(); onYes(); };
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('confirm-modal').classList.remove('show');
+}
+
+// Init
+initSetup();
+</script>
+</body>
+</html>
