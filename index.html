@@ -710,7 +710,7 @@ function toggleDeadBall() {
   if (match.matchOver) return;
   match.deadBallMode = !match.deadBallMode;
   updateShooterUI();
-  toast(match.deadBallMode ? 'Dead ball mode ON — balls go to opponent' : 'Dead ball mode OFF');
+  toast(match.deadBallMode ? 'Dead ball mode ON — balls won\'t score' : 'Dead ball mode OFF');
 }
 
 function pocketBall(num) {
@@ -721,13 +721,15 @@ function pocketBall(num) {
   let scoringPlayer;
 
   if (match.deadBallMode) {
-    scoringPlayer = 1 - match.currentShooter;
+    scoringPlayer = null; // dead balls don't score for anyone
   } else {
     scoringPlayer = match.currentShooter;
   }
 
   match.ballsPocketed.add(num);
-  match.players[scoringPlayer].score += points;
+  if (scoringPlayer !== null) {
+    match.players[scoringPlayer].score += points;
+  }
 
   match.history.push({
     type: 'pocket',
@@ -740,11 +742,14 @@ function pocketBall(num) {
   updateScoreboard();
   renderBalls();
 
-  const label = match.deadBallMode ? ' (dead ball)' : '';
-  toast(`${match.players[scoringPlayer].name} +${points}${label}`);
+  if (match.deadBallMode) {
+    toast(`Ball ${num} dead — no points scored`);
+  } else {
+    toast(`${match.players[scoringPlayer].name} +${points}`);
+  }
 
   // Check for match win
-  if (match.players[scoringPlayer].score >= match.players[scoringPlayer].race) {
+  if (scoringPlayer !== null && match.players[scoringPlayer].score >= match.players[scoringPlayer].race) {
     match.matchOver = true;
     showMatchWin(scoringPlayer);
     return;
@@ -766,7 +771,9 @@ function undoLast() {
 
   if (action.type === 'pocket') {
     match.ballsPocketed.delete(action.ball);
-    match.players[action.scoringPlayer].score -= action.points;
+    if (action.scoringPlayer !== null) {
+      match.players[action.scoringPlayer].score -= action.points;
+    }
     if (match.matchOver) match.matchOver = false;
     updateScoreboard();
     renderBalls();
